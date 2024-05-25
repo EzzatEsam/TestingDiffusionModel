@@ -3,7 +3,14 @@ import matplotlib.pyplot as plt
 import os
 
 
-def save_images(imgs, rows=1, cols=10, location=r"src/results", epoch_n=0, version=0):
+def save_images(
+    imgs,
+    rows=1,
+    cols=10,
+    location=r"/teamspace/studios/this_studio/src/results",
+    epoch_n=0,
+    version=0,
+):
     """
         Save a list of images to a specified location.
 
@@ -47,7 +54,7 @@ def save_images(imgs, rows=1, cols=10, location=r"src/results", epoch_n=0, versi
 def save_losses_graph(
     val_losses: list[float],
     train_losses: list[float],
-    location=r"src/results",
+    location=r"/teamspace/studios/this_studio/src/results",
     version=0,
 ):
     """

@@ -24,7 +24,8 @@ if __name__ == "__main__":
     
     # version 0 -> no attention
     # version 1 -> self attention added (using nn.MultiheadAttention)
+    # version 2 -> Changed model architecture 
     
-    version = 1
+    version = 2
 
     train(epochs, model, diff, optimizer, criterion, device, version=version)
