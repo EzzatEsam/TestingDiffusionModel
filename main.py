@@ -14,6 +14,8 @@ if __name__ == "__main__":
     epochs = 50
 
     model = SmallUnetWithEmb().to(device)
+    print(model)
+    print("Num params: ", sum(p.numel() for p in model.parameters()))
     diff = Diffusion(device=device)
 
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
