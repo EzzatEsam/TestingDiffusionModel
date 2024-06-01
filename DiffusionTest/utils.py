@@ -7,7 +7,7 @@ def save_images(
     imgs,
     rows=1,
     cols=10,
-    location=r"/teamspace/studios/this_studio/src/results",
+    location=r"/teamspace/studios/this_studio/runs/results",
     epoch_n=0,
     version=0,
 ):
@@ -40,7 +40,9 @@ def save_images(
             img = 0.5 * img + 0.5
             img = T.clip(img, 0, 1)
             img = img[0].permute(1, 2, 0)
-            axs[j].imshow(img)
+            if img.shape[2] == 1:
+                img = img[:, :, 0]
+            axs[j].imshow(img , cmap="gray" if len(img.shape) == 2 else None)
             axs[j].axis("off")
     plt.savefig(f"{location}/version{version}/epoch_{epoch_n}.png")
     plt.close(fig)
@@ -48,13 +50,19 @@ def save_images(
     last_img = 0.5 * last_img + 0.5
     last_img = T.clip(last_img, 0, 1)
     last_img = last_img[0].permute(1, 2, 0).numpy()
-    plt.imsave(f"{location}/version{version}/epoch_{epoch_n}_last.png", last_img)
+    if last_img.shape[2] == 1:
+        last_img = last_img[:, :, 0]
+    plt.imsave(
+        f"{location}/version{version}/epoch_{epoch_n}_last.png",
+        last_img,
+        cmap="gray" if len(img.shape) == 2 else None,
+    )
 
 
 def save_losses_graph(
     val_losses: list[float],
     train_losses: list[float],
-    location=r"/teamspace/studios/this_studio/src/results",
+    location=r"/teamspace/studios/this_studio/runs/results",
     version=0,
 ):
     """
@@ -85,7 +93,7 @@ def save_losses_graph(
 
 def save_model(
     model: T.nn.Module,
-    location: str = "/teamspace/studios/this_studio/src/models",
+    location: str = "/teamspace/studios/this_studio/runs/models",
     epoch_n: int = 0,
     version=0,
 ):
@@ -94,7 +102,7 @@ def save_model(
 
     Args:
         model (torch.nn.Module): The model to save.
-        location (str, optional): The directory to save the model file. Defaults to "/teamspace/studios/this_studio/src/models".
+        location (str, optional): The directory to save the model file. Defaults to "/teamspace/studios/this_studio/runs/models".
         epoch_n (int, optional): The epoch number associated with the model. Defaults to 0.
         version (int, optional): The version number associated with the model. Defaults to 0.
 

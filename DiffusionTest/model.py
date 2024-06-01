@@ -5,21 +5,29 @@ print_versions = False
 
 
 class SmallUnetWithEmb(nn.Module):
-    def __init__(self, img_channels=3, embedding_dim=256, device="cuda"):
+    def __init__(self, img_channels=3, embedding_dim=256, n_classes : int | None = None , device="cuda"):
         super(SmallUnetWithEmb, self).__init__()
         self.device = device
         self.encoder = Encoder(img_channels, embedding_dim)
         self.decoder = Decoder(1024, embedding_dim)
-        self.final = nn.Conv2d(64, 3, kernel_size=3, padding=1)
+        self.final = nn.Conv2d(64, img_channels, kernel_size=3, padding=1)
         self.embedding_dim = embedding_dim
-        self.bottleneck =  DoubleConv(512, 512, embedding_dim , has_attention=True)
-    def forward(self, x: T.Tensor, embeddings: T.tensor):
+        self.bottleneck = DoubleConv(512, 512, embedding_dim, has_attention=True)
+        self.n_classes = n_classes
+        if n_classes :
+            self.cls_embedding = nn.Embedding(n_classes, embedding_dim)
+
+    def forward(self, x: T.Tensor, embeddings: T.tensor , y : T.Tensor | None = None):
+
+        if y and self.n_classes :
+            cls_embedding = self.cls_embedding(y)
+            embeddings = embeddings + cls_embedding
         x = self.encoder(x, embeddings)
-        x1 , x2, x3, x4 , x5 = x
-        
-        x5 = self.bottleneck(x5 , embeddings)
-        x = [x1, x2, x3, x4, x5]
-        x = self.decoder(*x, embeddings)
+        x1, x2, x3, x4, x5 = x
+
+        x5 = self.bottleneck(x5, embeddings)
+        x_enc: list[T.Tensor] = [x1, x2, x3, x4, x5]
+        x = self.decoder(*x_enc, embeddings)
         x = self.final(x)
         return x
 
@@ -54,15 +62,15 @@ class DoubleConv(nn.Module):
         self.conv1 = nn.Sequential(
             nn.BatchNorm2d(in_channels),
             nn.SiLU(),
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),   
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
         )
-        
+
         self.conv2 = nn.Sequential(
             nn.BatchNorm2d(out_channels),
             nn.SiLU(),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
         )
-        self.embed = nn.Sequential(nn.SELU(), nn.Linear(embedding_dim, out_channels))
+        self.embed = nn.Sequential(nn.SiLU(), nn.Linear(embedding_dim, out_channels))
         if has_attention:
             self.attn = SelfAttention(out_channels)
         if residual:
@@ -75,7 +83,7 @@ class DoubleConv(nn.Module):
         t = self.embed(time_vec)
         t = t[:, :, None, None].repeat(1, 1, x.shape[-2], x.shape[-1])
         x = x + t
-        
+
         x = self.conv2(x)
         if self.residual:
             x = x + self.residual(x_old)
@@ -98,7 +106,7 @@ class DownModule(nn.Module):
     def forward(self, x, time_vec):
         x1 = self.conv.forward(x, time_vec)
         x = self.pool(x1)
-        return x , x1
+        return x, x1
 
 
 class UpModule(nn.Module):
@@ -125,21 +133,21 @@ class Encoder(nn.Module):
         self.down1 = DownModule(in_channels, 64, embedding_dim)
         self.down2 = DownModule(64, 128, embedding_dim)
         self.down3 = DownModule(128, 256, embedding_dim)
-        self.down4 = DownModule(256, 512, embedding_dim , has_attention=True)
-        self.down5 = DownModule(512, 1024, embedding_dim , has_attention=True)
+        self.down4 = DownModule(256, 512, embedding_dim, has_attention=True)
+        self.down5 = DownModule(512, 1024, embedding_dim, has_attention=True)
 
     def forward(self, x, time_vec):
-        x , x1 = self.down1(x, time_vec)  # x1 has shape (batch_size, 64, 256, 256)
-        x , x2 = self.down2(x, time_vec)  # x2 has shape (batch_size, 128, 128, 128)
-        x , x3 = self.down3(x, time_vec)  # x3 has shape (batch_size, 256, 64, 64)
-        x5 ,x4 = self.down4(x, time_vec)  # x4 has shape (batch_size, 512, 32, 32)
-        return x1, x2, x3, x4 , x5
+        x, x1 = self.down1(x, time_vec)  # x1 has shape (batch_size, 64, 256, 256)
+        x, x2 = self.down2(x, time_vec)  # x2 has shape (batch_size, 128, 128, 128)
+        x, x3 = self.down3(x, time_vec)  # x3 has shape (batch_size, 256, 64, 64)
+        x5, x4 = self.down4(x, time_vec)  # x4 has shape (batch_size, 512, 32, 32)
+        return x1, x2, x3, x4, x5
 
 
 class Decoder(nn.Module):
     def __init__(self, in_channels, time_dim):
         super(Decoder, self).__init__()
-        self.up1 = UpModule(in_channels, 256, time_dim , has_attention=True)
+        self.up1 = UpModule(in_channels, 256, time_dim, has_attention=True)
         self.up2 = UpModule(512, 128, time_dim)
         self.up3 = UpModule(256, 64, time_dim)
         self.up4 = UpModule(128, 64, time_dim)

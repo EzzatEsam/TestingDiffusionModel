@@ -1,4 +1,3 @@
-from torchsummary import summary
 import torch as T
 from .model import SmallUnetWithEmb
 
