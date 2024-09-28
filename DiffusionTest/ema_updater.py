@@ -22,7 +22,7 @@ class EmaUpdater :
         self.steps = 0
         self.start_after = start_after
 
-    def update(self, current_model):
+    def update(self, current_model : T.nn.Module):
         """
         Updates the exponential moving average (EMA) of the model parameters.
 

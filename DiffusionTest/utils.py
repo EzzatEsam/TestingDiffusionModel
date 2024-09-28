@@ -1,68 +1,81 @@
 import torch as T
 import matplotlib.pyplot as plt
 import os
+import pandas as pd
+
+import os
+import matplotlib.pyplot as plt
 
 
 def save_images(
     imgs,
-    rows=1,
-    cols=10,
-    location=r"/teamspace/studios/this_studio/runs/results",
+    location=r"/teamspace/studios/this_studio/runs",
     epoch_n=0,
     version=0,
 ):
     """
-        Save a list of images to a specified location.
+    Save a list of tensors, each containing multiple images generated together at the same timestep.
 
-        Args:
-            imgs (list): A list of images to be saved.
-            rows (int, optional): The number of rows in the grid of images. Defaults to 1.
-            cols (int, optional): The number of columns in the grid of images. Defaults to 10.
-            location (str, optional): The directory path where the images will be saved. Defaults to "src/results".
-            epoch_n (int, optional): The epoch number associated with the images. Defaults to 0.
-            version (int, optional): The version number associated with the images. Defaults to 0.
+    Args:
+        imgs (list): A list of tensors, each containing multiple images at the same timestep.
+        location (str, optional): The directory path where the images will be saved. Defaults to "src/results".
+        epoch_n (int, optional): The epoch number associated with the images. Defaults to 0.
+        version (int, optional): The version number associated with the images. Defaults to 0.
 
-        Returns:
-            None
-
-    This function saves a grid of images to a specified location. The images are displayed in a grid of specified rows and columns. The images are first converted to the CPU, then normalized to the range [0, 1], and finally permuted to the format (channel, height, width). The grid of images is saved as a PNG file with the name "epoch_{epoch_n}_version{version}.png". The last image in the list is saved separately as a PNG file with the name "epoch_{epoch_n}_version{version}_last.png".
-
-        Note:
-            This function requires the matplotlib and PyTorch libraries to be installed.
-
+    Returns:
+        None
     """
 
-    os.makedirs(location + f"/version{version}", exist_ok=True)
-    fig, axs = plt.subplots(rows, cols, figsize=(20, 2))
+    save_path = f"{location}/version{version}/imgs"
+    os.makedirs(save_path, exist_ok=True)
+
+    rows = imgs[0].shape[0]
+    cols = len(imgs)
+
+    fig, axs = plt.subplots(rows, cols, figsize=(20, 2 * rows))
+
     for i in range(rows):
         for j in range(cols):
-            img = imgs[i * cols + j].to("cpu")
+            img = imgs[j][i].to("cpu")
             img = 0.5 * img + 0.5
             img = T.clip(img, 0, 1)
-            img = img[0].permute(1, 2, 0)
+            img = img.permute(1, 2, 0).numpy()
             if img.shape[2] == 1:
                 img = img[:, :, 0]
-            axs[j].imshow(img , cmap="gray" if len(img.shape) == 2 else None)
-            axs[j].axis("off")
-    plt.savefig(f"{location}/version{version}/epoch_{epoch_n}.png")
+            # Handle potential 1D axs array
+            if rows == 1:
+                axs[j].imshow(img, cmap="gray" if len(img.shape) == 2 else None)
+                axs[j].axis("off")
+            else:
+                axs[i, j].imshow(img, cmap="gray" if len(img.shape) == 2  else None)
+                axs[i, j].axis("off")
+
+    plt.suptitle(f"Version {version} - Epoch {epoch_n}", fontsize=26)
+    plt.savefig(f"{save_path}/epoch_{epoch_n}.png")
     plt.close(fig)
-    last_img = imgs[-1].to("cpu")
-    last_img = 0.5 * last_img + 0.5
-    last_img = T.clip(last_img, 0, 1)
-    last_img = last_img[0].permute(1, 2, 0).numpy()
-    if last_img.shape[2] == 1:
-        last_img = last_img[:, :, 0]
-    plt.imsave(
-        f"{location}/version{version}/epoch_{epoch_n}_last.png",
-        last_img,
-        cmap="gray" if len(img.shape) == 2 else None,
-    )
+
+    # Save the last image set
+    last_img_set = imgs[-1].to("cpu")
+    for k in range(last_img_set.shape[0]):
+        last_img = last_img_set[k]
+        last_img = 0.5 * last_img + 0.5
+        last_img = T.clip(last_img, 0, 1)
+        last_img = last_img.permute(1, 2, 0).numpy()
+        if last_img.shape[2] == 1:
+            last_img = last_img[:, :, 0]
+
+        plt.imsave(
+            f"{save_path}/epoch_{epoch_n}_last_{k}.png",
+            last_img,
+            cmap="gray" if last_img.ndim == 2 else None,
+        )
+    print(f"Saved last image set with {last_img_set.shape[0]} images.")
 
 
 def save_losses_graph(
     val_losses: list[float],
     train_losses: list[float],
-    location=r"/teamspace/studios/this_studio/runs/results",
+    location=r"/teamspace/studios/this_studio/runs",
     version=0,
 ):
     """
@@ -78,22 +91,40 @@ def save_losses_graph(
         None
     """
 
-    os.makedirs(location + f"/version{version}", exist_ok=True)
-    plt.figure(figsize=(10, 10))
-    plt.plot(val_losses, label="val")
-    plt.plot(train_losses, label="train")
-    plt.title("Losses")
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.grid()
-    plt.legend()
-    plt.savefig(f"{location}/version{version}/losses.png")
+    os.makedirs(location + f"/version{version}/graphs", exist_ok=True)
+
+    losses_df = pd.DataFrame(
+        {
+            "Epoch": range(1, len(train_losses) + 1),
+            "Training Loss": train_losses,
+            "Validation Loss": val_losses,
+        }
+    )
+    losses_df.to_csv(f"{location}/version{version}/graphs/losses.csv", index=False)
+
+    plt.figure(figsize=(12, 8))
+
+    # Enhanced plotting
+    plt.plot(val_losses, label="Validation Loss", color='blue', linestyle='--', marker='o', markersize=5)
+    plt.plot(train_losses, label="Training Loss", color='orange', linestyle='-', marker='x', markersize=5)
+
+    plt.title("Training and Validation Loss Over Epochs", fontsize=16)
+    plt.xlabel("Epochs", fontsize=14)
+    plt.ylabel("Loss", fontsize=14)
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+    plt.grid(which='both', linestyle='--', linewidth=0.5)
+    plt.axhline(y=min(val_losses), color='red', linestyle=':', label='Minimum Val Loss')
+    plt.legend(fontsize=12)
+
+    plt.tight_layout()
+    plt.savefig(f"{location}/version{version}/graphs/losses.png")
     plt.close()
 
 
 def save_model(
     model: T.nn.Module,
-    location: str = "/teamspace/studios/this_studio/runs/models",
+    location: str = "/teamspace/studios/this_studio/runs",
     epoch_n: int = 0,
     version=0,
 ):
@@ -115,5 +146,5 @@ def save_model(
         This function requires the PyTorch library to be installed.
 
     """
-    os.makedirs(location + f"/version{version}", exist_ok=True)
-    T.save(model.state_dict(), f"{location}/version{version}/epoch_{epoch_n}.pt")
+    os.makedirs(location + f"/version{version}/models", exist_ok=True)
+    T.save(model.state_dict(), f"{location}/version{version}/models/epoch_{epoch_n}.pt")
