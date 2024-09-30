@@ -29,6 +29,8 @@ Based on the 2020 paper [Denoising Diffusion Probabilistic Models](https://arxiv
 ### Fashion mnist: 32x32 images (Conditional Generation).
 ![image](.images/fashion_1.png) 
 
+### Fashion mnist: 32x32 images (Unconditional Generation).
+![image](.images/fashionmnist.png)
 
 
 ## Installation
