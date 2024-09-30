@@ -4,7 +4,7 @@ This repository is a simple demo implementation of the DDPM (Denoising Diffusion
 Based on the 2020 paper [Denoising Diffusion Probabilistic Models](https://arxiv.org/abs/2006.11239)
 
 ## Features
-- Diffusion model implementation using a UNet model.
+- Diffusion model implementation using a custom UNet model.
 - Support for image generation from a pre-trained model.
 - Support for training from scratch or continuing from a checkpoint.
 - Customizable dataset, image size, batch size, and other training parameters via command-line arguments.
