@@ -1,0 +1,14 @@
+# version 0 -> no attention
+# version 1 -> self attention added (using nn.MultiheadAttention)
+# version 2 -> Changed model architecture and used Silu instead of ReLU
+# version 3 -> Used hugging face diffusers.UNet2DModel  UNet2DModel( in_channels= 3 , out_channels = 3, block_out_channels = (32,64 , 128 , 512) , norm_num_groups=8).to(device)
+# version 4 -> Normal model in Version 3 .. changed dataset to Lsun bridges
+# version 5 -> Added EMA
+# Version 6 -> used fashion mnist 32*32 dataset
+# version 7 -> used fashion mnist 32*32 dataset with the diffusers UNet2DModel ..lr -> 2e-3
+# Version 8 -> fixed the stupid ass bug where the generation size is set to 128
+# version 9 -> changed the model to the SmallUnetWithEmb( img_channels=1). Ds is still the same
+# Version 10 -> Used the celeb ds with 64*64 images also lr from 2e-3 to 1e-3
+# version 11 -> Changed the max pool in the down module to conv2d with 3*3 kernel size and padding 1 and the upsample to convtranspose2d
+# version 12 -> attention layer added to the 3rd layer in both the decoder and the encoder
+

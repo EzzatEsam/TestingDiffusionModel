@@ -16,7 +16,6 @@ def train(
     val_loader,
     device,
     is_conditional: bool = False,
-    hg_model: bool = False,
     apply_ema: bool = False,
     version: int = 0,
     start_epoch: int = 0,
@@ -41,7 +40,7 @@ def train(
     """
     print(f"Training version: {version}")
     if apply_ema:
-        updater = EmaUpdater(model, 0.995, start_after=200)
+        updater = EmaUpdater(model, 0.995, start_after=200 if start_epoch == 0 else 0)
     train_loss: list[float] = []
     val_loss: list[float] = []
 
@@ -59,13 +58,9 @@ def train(
             noisy_imgs = noisy_imgs.to(device)
             noise = noise.to(device)
 
-
             optimizer.zero_grad()
-            if hg_model:
-                time_vec = t.to(device)
-            else:
-                time_vec = diff.time_encode(t)
-
+            
+            time_vec = diff.time_encode(t)
 
             if is_conditional:
                 y = y.to(device)
@@ -73,12 +68,12 @@ def train(
             else:
                 out = model(noisy_imgs, time_vec)
 
-            if hg_model:
-                out = out.sample
 
             loss = criterion(out, noise)
             loss.backward()
-            T.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # Clip gradients
+            T.nn.utils.clip_grad_norm_(
+                model.parameters(), max_norm=1.0
+            )  # Clip gradients
 
             optimizer.step()
             if apply_ema:
@@ -105,10 +100,8 @@ def train(
                 noisy_imgs, noise = diff.add_noise(data, t)
                 time_vec = diff.time_encode(t).to(device)
 
-                if hg_model:
-                    time_vec = t.to(device)
-                else:
-                    time_vec = diff.time_encode(t)
+                
+                time_vec = diff.time_encode(t)
 
                 if is_conditional:
                     y = y.to(device)
@@ -116,8 +109,7 @@ def train(
                 else:
                     out = model(noisy_imgs, time_vec)
 
-                if hg_model:
-                    out = out.sample
+                
                 loss = criterion(out, noise)
                 losses += [loss.item()]
                 pbar.set_postfix(
@@ -128,10 +120,12 @@ def train(
                 )
 
         val_loss += [sum(losses) / len(losses)]
-        save_losses_graph(val_loss, train_loss, version=version)
+        save_losses_graph(
+            val_loss, train_loss, version=version, start_epoch=start_epoch
+        )
 
         if epoch % save_every_n == 0:
             print("Generating a sample...")
-            imgs = diff.generate_sample(model , n_images=4)
+            imgs = diff.generate_sample(model, n_images=4)
             save_images(imgs, version=version, epoch_n=epoch)
             save_model(model, epoch_n=epoch, version=version)

@@ -47,7 +47,7 @@ def save_images(
                 axs[j].imshow(img, cmap="gray" if len(img.shape) == 2 else None)
                 axs[j].axis("off")
             else:
-                axs[i, j].imshow(img, cmap="gray" if len(img.shape) == 2  else None)
+                axs[i, j].imshow(img, cmap="gray" if len(img.shape) == 2 else None)
                 axs[i, j].axis("off")
 
     plt.suptitle(f"Version {version} - Epoch {epoch_n}", fontsize=26)
@@ -75,6 +75,7 @@ def save_images(
 def save_losses_graph(
     val_losses: list[float],
     train_losses: list[float],
+    start_epoch: int = 0,
     location=r"/teamspace/studios/this_studio/runs",
     version=0,
 ):
@@ -84,39 +85,80 @@ def save_losses_graph(
     Args:
         val_losses (list[float]): A list of validation losses.
         train_losses (list[float]): A list of training losses.
+        start_epoch (int, optional): The epoch number from which to start appending new data. Defaults to 0.
         location (str, optional): The directory path where the plot will be saved. Defaults to "src/results".
         version (int, optional): The version number to be appended to the directory path. Defaults to 0.
 
     Returns:
         None
     """
-
     os.makedirs(location + f"/version{version}/graphs", exist_ok=True)
 
-    losses_df = pd.DataFrame(
+    # Prepare the new losses DataFrame
+    new_losses_df = pd.DataFrame(
         {
-            "Epoch": range(1, len(train_losses) + 1),
+            "Epoch": range(start_epoch + 1, start_epoch + len(train_losses) + 1),
             "Training Loss": train_losses,
             "Validation Loss": val_losses,
         }
     )
-    losses_df.to_csv(f"{location}/version{version}/graphs/losses.csv", index=False)
+
+    # File path for the CSV
+    csv_file_path = f"{location}/version{version}/graphs/losses.csv"
+
+    # Check if the CSV already exists and start_epoch is not 0
+    if start_epoch != 0 and os.path.exists(csv_file_path):
+        # Load existing data
+        existing_losses_df = pd.read_csv(csv_file_path)
+
+        # Combine the old and new data
+        combined_losses_df = pd.concat(
+            [existing_losses_df, new_losses_df], ignore_index=True
+        )
+    else:
+        combined_losses_df = new_losses_df
+
+    # Save the combined data to CSV
+    combined_losses_df.to_csv(csv_file_path, index=False)
 
     plt.figure(figsize=(12, 8))
 
-    # Enhanced plotting
-    plt.plot(val_losses, label="Validation Loss", color='blue', linestyle='--', marker='o', markersize=5)
-    plt.plot(train_losses, label="Training Loss", color='orange', linestyle='-', marker='x', markersize=5)
+    # Plot losses
+    plt.plot(
+        combined_losses_df["Epoch"],
+        combined_losses_df["Validation Loss"],
+        label="Validation Loss",
+        color="blue",
+        linestyle="--",
+        marker="o",
+        markersize=5,
+    )
+    plt.plot(
+        combined_losses_df["Epoch"],
+        combined_losses_df["Training Loss"],
+        label="Training Loss",
+        color="orange",
+        linestyle="-",
+        marker="x",
+        markersize=5,
+    )
 
     plt.title("Training and Validation Loss Over Epochs", fontsize=16)
     plt.xlabel("Epochs", fontsize=14)
     plt.ylabel("Loss", fontsize=14)
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
-    plt.grid(which='both', linestyle='--', linewidth=0.5)
-    plt.axhline(y=min(val_losses), color='red', linestyle=':', label='Minimum Val Loss')
+    plt.grid(which="both", linestyle="--", linewidth=0.5)
+    plt.axhline(y=min(val_losses), color="red", linestyle=":", label="Minimum Val Loss")
     plt.legend(fontsize=12)
-
+    plt.ylim(
+        0,
+        min(
+            max(combined_losses_df["Validation Loss"]) + 0.1,
+            max(combined_losses_df["Training Loss"]) + 0.1,
+            3.0,
+        ),
+    )
     plt.tight_layout()
     plt.savefig(f"{location}/version{version}/graphs/losses.png")
     plt.close()

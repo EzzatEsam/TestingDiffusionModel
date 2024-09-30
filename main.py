@@ -1,80 +1,147 @@
-from DiffusionTest import train
+import argparse
 import torch as T
 import torch.optim as optim
+import torch.nn.functional as F
+from DiffusionTest import train
 from DiffusionTest.model import SmallUnetWithEmb
 from DiffusionTest.diffusion import Diffusion
-import torch.nn.functional as F
-from diffusers.models import UNet2DModel
 from DiffusionTest.loader import get_loaders
 from DiffusionTest.utils import save_images
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Train a diffusion model or generate images."
+    )
+
+    # Arguments related to device and training mode
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="cuda" if T.cuda.is_available() else "cpu",
+        help="Device to run the model on, 'cuda' or 'cpu'. Default is based on availability.",
+    )
+    parser.add_argument(
+        "--training",
+        action="store_true",
+        default=False,
+        help="Flag to train the model. If not set, images will be generated instead.",
+    )
+
+    # Arguments related to saving, dataset and model configurations
+    parser.add_argument(
+        "--saving_path",
+        type=str,
+        default="/teamspace/studios/this_studio/runs",
+        help="Path where model checkpoints and images are saved.",
+    )
+    parser.add_argument(
+        "--version",
+        type=int,
+        default=12,
+        help="Version number for saving models and images.",
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        choices=["celeb", "bridge", "cifar10", "fashion"],
+        default="celeb",
+        help="Dataset to use. Default is 'celeb'.",
+    )
+    parser.add_argument(
+        "--img_size",
+        type=int,
+        default=64,
+        help="Image size to use for training and generation. Default is 64x64.",
+    )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=64,
+        help="Batch size for the dataloader. Default is 64.",
+    )
+
+    # Arguments related to training specifics
+    parser.add_argument(
+        "--start_epoch",
+        type=int,
+        default=0,
+        help="The starting epoch number for resuming training. Default is 0.",
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=1001,
+        help="Total number of epochs for training. Default is 1001.",
+    )
+    parser.add_argument(
+        "--save_every_n",
+        type=int,
+        default=2,
+        help="Frequency (in epochs) to save the model checkpoint. Default is every 2 epochs.",
+    )
+    parser.add_argument(
+        "--learning_rate",
+        type=float,
+        default=1e-4,
+        help="Learning rate for the optimizer. Default is 1e-4.",
+    )
+
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    device = T.device("cuda" if T.cuda.is_available() else "cpu")
+    args = parse_args()
+
+    device = T.device(args.device)
     print(f"Using device: {device}")
 
-    # model.load_state_dict(
-    #     T.load("/teamspace/studios/this_studio/runs/models/version5/epoch_495.pt" , map_location=device)
-    # )
+    saving_path = args.saving_path
+    training = args.training
+    version = args.version
+    ds = args.dataset
+    chans = 3 if ds == "celeb" else 1
+    img_size = args.img_size
+    batch_size = args.batch_size
+    start_epoch = args.start_epoch
+    epochs = args.epochs
+    save_every_n = args.save_every_n
+    lr = args.learning_rate
 
-    # model = UNet2DModel(   # Version 3
-    #     in_channels=3,
-    #     out_channels=3,
-    #     block_out_channels=(32, 64, 128, 512),
-    #     norm_num_groups=8,
-    # ).to(device)
-    # model = UNet2DModel(
-    #     in_channels=1,
-    #     out_channels=1,
-    #     block_out_channels=(16, 32, 64, 64),
-    #     norm_num_groups=8,
-    # ).to(device)   # version 7
-    # model.load_state_dict(
-    #     T.load("/teamspace/studios/this_studio/runs/models/version7/epoch_50.pt" , map_location=device))
-    
-    version = 10
-
-    is_hg = False
-    chans = 3
+    train_loader, val_loader = get_loaders(ds, batch_size, img_size)
     model = SmallUnetWithEmb(img_channels=chans).to(device)
+
+    if start_epoch > 0:
+        model.load_state_dict(
+            T.load(
+                saving_path + f"/version{version}/models/epoch_{start_epoch-1}.pt",
+                map_location=device,
+            )
+        )
     print("Num params: ", sum(p.numel() for p in model.parameters()))
 
-    img_size = 32
-    train_loader, val_loader = get_loaders("celeb", 64, 64)
+    diff = Diffusion(device=device, img_channels=chans, img_size=img_size)
 
-    diff = Diffusion(device=device, is_hg=is_hg , img_channels=chans, img_size=img_size)
-
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = optim.Adam(model.parameters(), lr=lr)
     criterion = F.mse_loss
 
-    # version 0 -> no attention
-    # version 1 -> self attention added (using nn.MultiheadAttention)
-    # version 2 -> Changed model architecture and used Silu instead of ReLU
-    # version 3 -> Used hugging face diffusers.UNet2DModel  UNet2DModel( in_channels= 3 , out_channels = 3, block_out_channels = (32,64 , 128 , 512) , norm_num_groups=8).to(device)
-    # version 4 -> Normal model in Version 3 .. changed dataset to Lsun bridges
-    # version 5 -> Added EMA
-    # Version 6 -> used fashion mnist 32*32 dataset
-    # version 7 -> used fashion mnist 32*32 dataset with the diffusers UNet2DModel ..lr -> 2e-3
-    # Version 8 -> fixed the stupid ass bug where the generation size is set to 128
-    # version 9 -> changed the model to the SmallUnetWithEmb( img_channels=1). Ds is still the same
-    # Version 10 -> Used the celeb ds with 64*64 images also lr from 2e-3 to 1e-3
+    if not training:
+        print("Generating images")
+        imgs = diff.generate_sample(model, n_images=10)
+        save_images(imgs, version=version, epoch_n=start_epoch)
 
-    # if not train:
-    # imgs = diff.generate_sample(model , n_images=5)
-    # save_images(imgs, version=version, epoch_n=1)
-
-    # else:
-    train(
-        model=model,
-        diff=diff,
-        optimizer=optimizer,
-        criterion=criterion,
-        train_loader=train_loader,
-        val_loader=val_loader,
-        device= device,
-        apply_ema=False,
-        epochs=1001,
-        version=version,
-        start_epoch=0,
-        hg_model=is_hg,
-        save_every_n=2,
-    )
+    else:
+        train(
+            model=model,
+            diff=diff,
+            optimizer=optimizer,
+            criterion=criterion,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            device=device,
+            apply_ema=False,
+            epochs=epochs,
+            version=version,
+            start_epoch=start_epoch,
+            save_every_n=save_every_n,
+        )

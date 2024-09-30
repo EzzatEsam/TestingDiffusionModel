@@ -12,7 +12,6 @@ class Diffusion:
         img_channels: int = 3,
         embedding_dim: int = 256,
         device: T.device = T.device("cuda" if T.cuda.is_available() else "cpu"),
-        is_hg: bool = False,
         n_classes: int | None = None,
     ):
         self.time_steps = time_steps
@@ -24,7 +23,6 @@ class Diffusion:
         self.beta_schedule = T.linspace(start_beta, end_beta, time_steps).to(device)
         self.alpha_schedule = 1 - self.beta_schedule
         self.alpha_hat_schedule = T.cumprod(input=self.alpha_schedule, axis=0)
-        self.is_hg = is_hg
         self.n_classes = n_classes
         self.img_channels = img_channels
 
@@ -89,7 +87,9 @@ class Diffusion:
     def get_time_samples(self, batch_size=1) -> T.Tensor:
         return T.randint(low=0, high=self.time_steps, size=(batch_size,)).to("cpu")
 
-    def generate_sample(self, model: T.nn.Module, n=10, n_images : int = 1 ,label: int | None = None):
+    def generate_sample(
+        self, model: T.nn.Module, n=10, n_images: int = 1, label: int | None = None
+    ):
         with T.no_grad():
             model.eval()
             img = T.randn(
@@ -97,11 +97,9 @@ class Diffusion:
             ).to(self.device)
             imgs = []
             for t in reversed(range(self.time_steps)):
-                if not self.is_hg:
-                    t_vec = self.time_encode(T.tensor([t] * n_images).to(self.device))
-                    predicted_noise = model(img, t_vec)
-                else:
-                    predicted_noise = model(img, t).sample
+                t_vec = self.time_encode(T.tensor([t] * n_images).to(self.device))
+                predicted_noise = model(img, t_vec , label)
+
                 img = self.remove_noise(img, predicted_noise, t)
 
                 every_n = self.time_steps // n
