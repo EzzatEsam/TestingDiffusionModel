@@ -96,6 +96,7 @@ if __name__ == "__main__":
     device = T.device(args.device)
     print(f"Using device: {device}")
 
+    print(f"Mode is {'training' if args.training else 'generating'}")
     saving_path = args.saving_path
     training = args.training
     version = args.version
@@ -108,7 +109,6 @@ if __name__ == "__main__":
     save_every_n = args.save_every_n
     lr = args.learning_rate
 
-    train_loader, val_loader = get_loaders(ds, batch_size, img_size)
     model = SmallUnetWithEmb(img_channels=chans).to(device)
 
     if start_epoch > 0:
@@ -131,6 +131,9 @@ if __name__ == "__main__":
         save_images(imgs, version=version, epoch_n=start_epoch)
 
     else:
+        print("Training model")
+        print(f"Using dataset: {ds} with image size: {img_size}")
+        train_loader, val_loader = get_loaders(ds, batch_size, img_size)
         train(
             model=model,
             diff=diff,
