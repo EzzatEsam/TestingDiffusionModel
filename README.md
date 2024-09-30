@@ -81,7 +81,7 @@ The model will be trained for the specified number of epochs, and checkpoints wi
 | `--epochs`         | `int`   | `1001`                                               | Maximum number of epochs to train the model.                                                              |
 | `--save_every_n`   | `int`   | `2`                                                  | Save model checkpoint every `n` epochs during training.                                                 |
 | `--learning_rate`  | `float` | `1e-4`                                               | Learning rate for the optimizer.                                                                        |
-| `--conditional`  | `flag`  | `False`                                              | If set, the model will be trained with an conditional generation.                                     |
+| `--conditional`  | `flag`  | `False`                                              | If set, the model will be trained with conditional generation.                                     |
 
 ## Examples
 
