@@ -72,13 +72,13 @@ def parse_args():
         "--epochs",
         type=int,
         default=1001,
-        help="Total number of epochs for training. Default is 1001.",
+        help="Maximum number of epochs for training. Default is 1001.",
     )
     parser.add_argument(
         "--save_every_n",
         type=int,
         default=2,
-        help="Frequency (in epochs) to save the model checkpoint. Default is every 2 epochs.",
+        help="Frequency (in epochs) to save the model checkpoint and generate images. Default is every 2 epochs.",
     )
     parser.add_argument(
         "--learning_rate",
@@ -87,6 +87,12 @@ def parse_args():
         help="Learning rate for the optimizer. Default is 1e-4.",
     )
 
+    parser.add_argument(
+        "--conditional",
+        action="store_true",
+        default=False,
+        help="Flag to use conditional generation. Default is False.",
+    )
     return parser.parse_args()
 
 
@@ -101,15 +107,49 @@ if __name__ == "__main__":
     training = args.training
     version = args.version
     ds = args.dataset
-    chans = 3 if ds == "celeb" else 1
     img_size = args.img_size
     batch_size = args.batch_size
     start_epoch = args.start_epoch
     epochs = args.epochs
+    conditional = args.conditional
     save_every_n = args.save_every_n
     lr = args.learning_rate
 
-    model = SmallUnetWithEmb(img_channels=chans).to(device)
+    chans = 1 if ds == "fashion" else 3
+    n_classes = None
+    if conditional:
+        if ds == "fashion":
+            n_classes = 10
+            class_names = [
+                "T-shirt/top",  # 0
+                "Trouser",  # 1
+                "Pullover",  # 2
+                "Dress",  # 3
+                "Coat",  # 4
+                "Sandal",  # 5
+                "Shirt",  # 6
+                "Sneaker",  # 7
+                "Bag",  # 8
+                "Ankle boot",  # 9
+            ]
+
+        elif ds == "cifar10":
+            class_names = [
+                "Airplane",  # 0
+                "Automobile",  # 1
+                "Bird",  # 2
+                "Cat",  # 3
+                "Deer",  # 4
+                "Dog",  # 5
+                "Frog",  # 6
+                "Horse",  # 7
+                "Ship",  # 8
+                "Truck",  # 9
+            ]
+
+            n_classes = 10
+
+    model = SmallUnetWithEmb(img_channels=chans, n_classes=n_classes).to(device)
 
     if start_epoch > 0:
         model.load_state_dict(
@@ -127,12 +167,35 @@ if __name__ == "__main__":
 
     if not training:
         print("Generating images")
-        imgs = diff.generate_sample(model, n_images=10)
-        save_images(imgs, version=version, epoch_n=start_epoch)
+        if n_classes is not None:
+            print("Generating images with conditional generation")
+            if n_classes is not None:
+                classes = []
+                for cls in range(n_classes):
+                    classes += [cls] * 2
+
+                classes = T.tensor(classes).to(device)
+                imgs = diff.generate_sample(
+                    model, n_images=len(classes), labels=classes
+                )
+                class_names = [class_names[cls] for cls in classes.cpu().tolist()]
+                save_images(
+                    imgs,
+                    version=version,
+                    epoch_n=start_epoch,
+                    classes_list=class_names,
+                )
+        else:
+            print("Generating images without conditional generation")
+            imgs = diff.generate_sample(model, n_images=10)
+            save_images(imgs, version=version, epoch_n=start_epoch)
 
     else:
         print("Training model")
         print(f"Using dataset: {ds} with image size: {img_size}")
+        print(f"Using batch size: {batch_size}")
+        print(f"Is conditional: {conditional}")
+        print(f"Number of classes: {n_classes}")
         train_loader, val_loader = get_loaders(ds, batch_size, img_size)
         train(
             model=model,
@@ -146,5 +209,6 @@ if __name__ == "__main__":
             epochs=epochs,
             version=version,
             start_epoch=start_epoch,
+            n_classes=n_classes,
             save_every_n=save_every_n,
         )

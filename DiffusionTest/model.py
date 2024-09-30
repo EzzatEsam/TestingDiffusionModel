@@ -17,25 +17,31 @@ class SmallUnetWithEmb(nn.Module):
         self.encoder = Encoder(
             img_channels,
             embedding_dim,
-            use_attention_layers=[False, False, True, True],
-            channels_list=[64, 128, 256, 512],
+            use_attention_layers=[False, False, False, True],
+            channels_list=[64, 128, 256, 512],  # default
+            # channels_list=[32, 64, 128, 256], # v 13
         )
         self.decoder = Decoder(
             512,
+            # 256,
             embedding_dim,
-            use_attention_layers=[False, False, True, True],
+            use_attention_layers=[False, False, False, True],
             channels_list=[256, 128, 64, 64],
+            # channels_list=[128, 64, 32, 32],
+
         )
         self.final = nn.Conv2d(64, img_channels, kernel_size=3, padding=1)
+        # self.final = nn.Conv2d(32, img_channels, kernel_size=3, padding=1)
         self.embedding_dim = embedding_dim
         self.bottleneck = DoubleConv(512, 512, embedding_dim, has_attention=True)
+        # self.bottleneck = DoubleConv(256, 256, embedding_dim, has_attention=True)
         self.n_classes = n_classes
         if n_classes:
             self.cls_embedding = nn.Embedding(n_classes, embedding_dim)
 
     def forward(self, x: T.Tensor, embeddings: T.tensor, y: T.Tensor | None = None):
 
-        if y and self.n_classes:
+        if y is not None and self.n_classes is not None:
             cls_embedding = self.cls_embedding(y)
             embeddings = embeddings + cls_embedding
         x = self.encoder(x, embeddings)

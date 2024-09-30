@@ -12,6 +12,7 @@ def save_images(
     location=r"/teamspace/studios/this_studio/runs",
     epoch_n=0,
     version=0,
+    classes_list: list = None,
 ):
     """
     Save a list of tensors, each containing multiple images generated together at the same timestep.
@@ -27,14 +28,25 @@ def save_images(
     """
 
     save_path = f"{location}/version{version}/imgs"
+    save_path_all = f"{location}/version{version}/imgs/epoch_{epoch_n}_all"
     os.makedirs(save_path, exist_ok=True)
+    os.makedirs(save_path_all, exist_ok=True)
 
     rows = imgs[0].shape[0]
     cols = len(imgs)
+    fig = plt.figure(constrained_layout=True, figsize=(20, 2 * rows))
 
-    fig, axs = plt.subplots(rows, cols, figsize=(20, 2 * rows))
-
+    figs = fig.subfigures(rows, 1)
+    last_cls = None
     for i in range(rows):
+        cls = classes_list[i] if classes_list is not None else None
+        fg = figs[i]
+        if cls != last_cls:
+            fg.suptitle(f"class: {cls}" if cls is not None else "", fontsize=26)    
+        else :
+            fg.suptitle("", fontsize=26)
+        last_cls = cls
+        axs = fg.subplots(1, cols)
         for j in range(cols):
             img = imgs[j][i].to("cpu")
             img = 0.5 * img + 0.5
@@ -43,14 +55,10 @@ def save_images(
             if img.shape[2] == 1:
                 img = img[:, :, 0]
             # Handle potential 1D axs array
-            if rows == 1:
-                axs[j].imshow(img, cmap="gray" if len(img.shape) == 2 else None)
-                axs[j].axis("off")
-            else:
-                axs[i, j].imshow(img, cmap="gray" if len(img.shape) == 2 else None)
-                axs[i, j].axis("off")
+            axs[j].imshow(img, cmap="gray" if len(img.shape) == 2 else None)
+            axs[j].axis("off")
 
-    plt.suptitle(f"Version {version} - Epoch {epoch_n}", fontsize=26)
+    fig.suptitle(f"Version {version} - Epoch {epoch_n}", fontsize=26)
     plt.savefig(f"{save_path}/epoch_{epoch_n}.png")
     plt.close(fig)
 
@@ -65,11 +73,13 @@ def save_images(
             last_img = last_img[:, :, 0]
 
         plt.imsave(
-            f"{save_path}/epoch_{epoch_n}_last_{k}.png",
+            f"{save_path_all}/epoch_{epoch_n}_last_{k}.png",
             last_img,
             cmap="gray" if last_img.ndim == 2 else None,
         )
-    print(f"Saved last image set with {last_img_set.shape[0]} images.")
+    print(
+        f"Saved last image set with {last_img_set.shape[0]} images. no of classes: {len(classes_list) if classes_list is not None else None}"
+    )
 
 
 def save_losses_graph(

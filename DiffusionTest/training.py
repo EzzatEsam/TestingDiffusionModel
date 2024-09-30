@@ -15,7 +15,7 @@ def train(
     train_loader,
     val_loader,
     device,
-    is_conditional: bool = False,
+    n_classes: int | None = None,
     apply_ema: bool = False,
     version: int = 0,
     start_epoch: int = 0,
@@ -59,15 +59,14 @@ def train(
             noise = noise.to(device)
 
             optimizer.zero_grad()
-            
+
             time_vec = diff.time_encode(t)
 
-            if is_conditional:
+            if n_classes is not None:
                 y = y.to(device)
                 out = model(noisy_imgs, time_vec, y)
             else:
                 out = model(noisy_imgs, time_vec)
-
 
             loss = criterion(out, noise)
             loss.backward()
@@ -100,16 +99,14 @@ def train(
                 noisy_imgs, noise = diff.add_noise(data, t)
                 time_vec = diff.time_encode(t).to(device)
 
-                
                 time_vec = diff.time_encode(t)
 
-                if is_conditional:
+                if n_classes is not None:
                     y = y.to(device)
                     out = model(noisy_imgs, time_vec, y)
                 else:
                     out = model(noisy_imgs, time_vec)
 
-                
                 loss = criterion(out, noise)
                 losses += [loss.item()]
                 pbar.set_postfix(
@@ -126,6 +123,22 @@ def train(
 
         if epoch % save_every_n == 0:
             print("Generating a sample...")
-            imgs = diff.generate_sample(model, n_images=4)
-            save_images(imgs, version=version, epoch_n=epoch)
+            if n_classes is not None:
+                classes = []
+                for cls in range(n_classes):
+                    classes += [cls] * 2
+
+                classes = T.tensor(classes).to(device)
+                imgs = diff.generate_sample(
+                    model, n_images=len(classes), labels=classes
+                )
+                save_images(
+                    imgs,
+                    version=version,
+                    epoch_n=epoch,
+                    classes_list=classes.cpu().tolist(),
+                )
+            else:
+                imgs = diff.generate_sample(model, n_images=4)
+                save_images(imgs, version=version, epoch_n=epoch)
             save_model(model, epoch_n=epoch, version=version)

@@ -11,4 +11,5 @@
 # Version 10 -> Used the celeb ds with 64*64 images also lr from 2e-3 to 1e-3
 # version 11 -> Changed the max pool in the down module to conv2d with 3*3 kernel size and padding 1 and the upsample to convtranspose2d
 # version 12 -> attention layer added to the 3rd layer in both the decoder and the encoder
-
+# version 13 -> ciphar10 and removed the 3rd attention layer and added classes
+# version 14 -> fasion mnist, same as before

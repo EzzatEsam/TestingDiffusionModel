@@ -5,6 +5,7 @@ Based on the 2020 paper [Denoising Diffusion Probabilistic Models](https://arxiv
 
 ## Features
 - Diffusion model implementation using a custom UNet model.
+- Support conditional (classes specified) and unconditional generation.
 - Support for image generation from a pre-trained model.
 - Support for training from scratch or continuing from a checkpoint.
 - Customizable dataset, image size, batch size, and other training parameters via command-line arguments.
@@ -18,11 +19,15 @@ Based on the 2020 paper [Denoising Diffusion Probabilistic Models](https://arxiv
 6. [Project Structure](#project-structure)
 
 ## Results
-### Celeb dataset: 64x64 images.
+### Celeb dataset: 64x64 images (Unconditional Generation).
 ![image](.images/celebv12.png)
+![image](.images/celebv12_1.png)
 
-### Fashion mnist: 32x32 images.
-![image](.images/fashionmnist.png) 
+### Cifar10 dataset: 32x32 images (Conditional Generation).
+![image](.images/cifar10_1.png)
+
+### Fashion mnist: 32x32 images (Conditional Generation).
+![image](.images/fashion_1.png.png) 
 
 
 
@@ -74,6 +79,7 @@ The model will be trained for the specified number of epochs, and checkpoints wi
 | `--epochs`         | `int`   | `1001`                                               | Maximum number of epochs to train the model.                                                              |
 | `--save_every_n`   | `int`   | `2`                                                  | Save model checkpoint every `n` epochs during training.                                                 |
 | `--learning_rate`  | `float` | `1e-4`                                               | Learning rate for the optimizer.                                                                        |
+| `--conditional`  | `flag`  | `False`                                              | If set, the model will be trained with an conditional generation.                                     |
 
 ## Examples
 
