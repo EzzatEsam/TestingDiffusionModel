@@ -37,7 +37,7 @@ Based on the 2020 paper [Denoising Diffusion Probabilistic Models](https://arxiv
 
 ### Clone the Repository
 ```bash
-git clone https://github.com/EzzatEsam/TestingDiffusionModel
+git clone https://github.com/EzzatEsam/TestingDiffusionModel.git
 ```
 
 ### Install Dependencies
